@@ -42,10 +42,10 @@ async function getUser(email) {
   return new Promise((resolve, reject) => {
     pool.getConnection((error, connection) => {
       if (error){ 
-        console.error(" failed to establish connection to database" + error)
+        console.error("failed to establish connection to database" + error)
         reject(error)
       }else{
-        connection.query(`SELECT password FROM users WHERE email = ?`, email, (err, result) => {
+        connection.query('SELECT password FROM users WHERE email = ?', [email], (err, result) => {
           if (err){
             console.error(err)
             reject(err)
@@ -60,19 +60,29 @@ async function getUser(email) {
 }
 
 app.post("/api/login", async (req, res) => {
-  const {email, password} = req.body
-  const [rows] = await getUser(email)
+  const { email, password } = req.body;
+  try {
+    const rows = await getUser(email); // Use await here
+    if (!rows || rows.length === 0) {
+      // No matching user found
+      return res.status(404).send("User not found");
+    }
 
-  const hash = rows.password
-  console.log(password, hash)
+    const hash = rows[0].password; // Assuming rows is an array with results
+    console.log(password, hash);
 
-  if (bcrypt.compareSync(password, hash)){
-    res.status(201)
-  }else{
-    res.status(401)
+
+    if (bcrypt.compareSync(password, hash)) {
+      res.status(201).send("Login successful!"); // Send a success message
+    } else {
+      res.status(401).send("Invalid credentials"); // Send an error message
+    }
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).send("Internal server error"); // Handle unexpected errors
   }
-})
-  
+});
+
 
 app.get("/api/user/:email", async (req, res) => {
   const email = req.params.email;
