@@ -29,7 +29,6 @@ async function createUser(email, password, firstName, lastName, birthDate){
       connection.query('INSERT INTO users (email, password, firstName, lastName, birthDate) VALUES (?, ?, ?, ?, ?)',
     [email, password, firstName, lastName, birthDate], (err) => {
       if (err){
-        console.error(err)
       }else{
         console.log("Sucessfully added user")
       }
@@ -45,7 +44,7 @@ async function getUser(email) {
         console.error("failed to establish connection to database" + error)
         reject(error)
       }else{
-        connection.query('SELECT password FROM users WHERE email = ?', [email], (err, result) => {
+        connection.query('SELECT password, roleID FROM users WHERE email = ?', [email], (err, result) => {
           if (err){
             console.error(err)
             reject(err)
@@ -62,18 +61,17 @@ async function getUser(email) {
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const rows = await getUser(email); // Use await here
+    const rows = await getUser(email);
     if (!rows || rows.length === 0) {
-      // No matching user found
       return res.status(404).send("User not found");
     }
-
-    const hash = rows[0].password; // Assuming rows is an array with results
-    console.log(password, hash);
-
-
+    const hash = rows[0].password;
+    const role = rows[0].roleID;
     if (bcrypt.compareSync(password, hash)) {
-      res.status(201).send("Login successful!"); // Send a success message
+      roleString = role === 1 ? "Admin" : "User"
+      res.status(200).send({
+        role: roleString
+      }) 
     } else {
       res.status(401).send("Invalid credentials"); // Send an error message
     }
@@ -87,7 +85,7 @@ app.post("/api/login", async (req, res) => {
 app.get("/api/user/:email", async (req, res) => {
   const email = req.params.email;
   const result = await getUser(email)
-  console.log(result)
+  // console.log(result)
   res.send(result);
 });
 
