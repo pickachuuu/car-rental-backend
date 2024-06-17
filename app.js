@@ -6,6 +6,13 @@ const app = express();
 const port = process.env.PORT || 5000;
 const cors = require('cors')
 const bodyParser = require('body-parser');
+const jwt = require('jsonwebtoken')
+const dotenv = require('dotenv')
+
+
+dotenv.config()
+process.env.TOKEN_SECRET
+
 
 app.use(bodyParser.json());
 app.use(express.json())
@@ -27,10 +34,11 @@ async function createUser(email, password, firstName, lastName, birthDate){
       console.error(error)
     }else{
       connection.query('INSERT INTO users (email, password, firstName, lastName, birthDate) VALUES (?, ?, ?, ?, ?)',
-    [email, password, firstName, lastName, birthDate], (err) => {
+    [email, password, firstName, lastName, birthDate], (err, res) => {
       if (err){
+        return err.code
       }else{
-        console.log("Sucessfully added user")
+        console.log(res)
       }
     })
     }
@@ -58,6 +66,14 @@ async function getUser(email) {
   })
 }
 
+function generateAccessToken(username){
+  return jwt.sign(username, process.env.TOKEN_SECRET, {expiresIn: '2400s'})
+}
+
+function authToken(req, res, next){
+
+}
+
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -73,11 +89,11 @@ app.post("/api/login", async (req, res) => {
         role: roleString
       }) 
     } else {
-      res.status(401).send("Invalid credentials"); // Send an error message
+      res.status(401).send("Invalid credentials");
     }
   } catch (error) {
     console.error("Error during login:", error);
-    res.status(500).send("Internal server error"); // Handle unexpected errors
+    res.status(500).send("Internal server error");
   }
 });
 
@@ -93,9 +109,8 @@ app.get("/api/user/:email", async (req, res) => {
 app.post("/api/register", async (req, res) => {
   const {email, password, firstName, lastName, birthDate} = req.body
   const hashPassword = await bcrypt.hash(password, 10)
-  const user = await createUser(email, hashPassword, firstName, lastName, birthDate)
-  console.log(user)
-  res.send(user)
+  const response = createUser(email, hashPassword, firstName, lastName, birthDate)
+  console.log(response)
 })
 
 
