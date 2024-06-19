@@ -66,12 +66,27 @@ async function getUser(email) {
   })
 }
 
-function generateAccessToken(username){
-  return jwt.sign(username, process.env.TOKEN_SECRET, {expiresIn: '2400s'})
+function generateAccessToken(email) {
+  const payload = { email }; // Create an object with the email property
+  return jwt.sign(payload, process.env.TOKEN_SECRET, { expiresIn: '30m' });
 }
 
-function authToken(req, res, next){
 
+function authToken(req, res){
+  const token = req.body.token
+  if (token){
+    const decode = jwt.verify(token, process.env.TOKEN_SECRET)
+
+    res.json({
+      login: true,
+      data: decode
+    })
+  }else{
+    res.json({
+      login: false,
+      data: "error",
+    });
+  }
 }
 
 app.post("/api/login", async (req, res) => {
@@ -84,16 +99,25 @@ app.post("/api/login", async (req, res) => {
     const hash = rows[0].password;
     const role = rows[0].roleID;
     if (bcrypt.compareSync(password, hash)) {
+    
+
       roleString = role === 1 ? "Admin" : "User"
-      res.status(200).send({
-        role: roleString
-      }) 
+      res.status(200).json({
+        login: true,
+        token: generateAccessToken(req.body.email)
+      }); 
     } else {
-      res.status(401).send("Invalid credentials");
+      res.status(401).json({
+        login: false,
+        error: "Invalid Credentials"
+      });
     }
   } catch (error) {
     console.error("Error during login:", error);
-    res.status(500).send("Internal server error");
+    res.status(500).json({
+      login: false,
+      error: "Server Error"
+    });
   }
 });
 
