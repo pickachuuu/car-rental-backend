@@ -74,14 +74,11 @@ function generateAccessToken(payload) {
   }
 }
 
-function authToken(req, res){
+function authToken(req, res, next){
   const token = req.body.token
   if (token){
     const decode = jwt.verify(token, process.env.TOKEN_SECRET)
-    res.json({
-      login: true,
-      data: decode
-    })
+    return decode
   }else{
     res.json({
       login: false,
@@ -102,12 +99,6 @@ app.post("/api/login", async (req, res) => {
     if (bcrypt.compareSync(password, hash)) {
       roleString = role === 1 ? "Admin" : "User"
       res.status(200).json({
-        "data": {
-          "user": {
-            "name": rows[0].firstName + ' ' + rows[0].lastName,
-            "role": roleString
-          }
-        },
         token: generateAccessToken({
           email: rows[0].email,
           username: rows[0].firstName,
