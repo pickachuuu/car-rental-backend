@@ -52,7 +52,7 @@ async function getUser(email) {
         console.error("failed to establish connection to database" + error)
         reject(error)
       }else{
-        connection.query('SELECT password, roleID FROM users WHERE email = ?', [email], (err, result) => {
+        connection.query('SELECT password, firstName, lastName, email, roleID FROM users WHERE email = ?', [email], (err, result) => {
           if (err){
             console.error(err)
             reject(err)
@@ -66,17 +66,18 @@ async function getUser(email) {
   })
 }
 
-function generateAccessToken(email) {
-  const payload = { email }; // Create an object with the email property
-  return jwt.sign(payload, process.env.TOKEN_SECRET, { expiresIn: '30m' });
+function generateAccessToken(payload) {
+  try{
+    return jwt.sign(payload, process.env.TOKEN_SECRET, { expiresIn: '30m' }); 
+  }catch(error){
+    console.error("failed to generate access token " + error)
+  }
 }
-
 
 function authToken(req, res){
   const token = req.body.token
   if (token){
     const decode = jwt.verify(token, process.env.TOKEN_SECRET)
-
     res.json({
       login: true,
       data: decode
@@ -99,12 +100,19 @@ app.post("/api/login", async (req, res) => {
     const hash = rows[0].password;
     const role = rows[0].roleID;
     if (bcrypt.compareSync(password, hash)) {
-    
-
       roleString = role === 1 ? "Admin" : "User"
       res.status(200).json({
-        login: true,
-        token: generateAccessToken(req.body.email)
+        "data": {
+          "user": {
+            "name": rows[0].firstName + ' ' + rows[0].lastName,
+            "role": roleString
+          }
+        },
+        token: generateAccessToken({
+          email: rows[0].email,
+          username: rows[0].firstName,
+          role: rows[0].roleID
+        })
       }); 
     } else {
       res.status(401).json({
@@ -120,6 +128,8 @@ app.post("/api/login", async (req, res) => {
     });
   }
 });
+
+
 
 
 app.get("/api/user/:email", async (req, res) => {
