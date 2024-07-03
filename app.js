@@ -27,23 +27,23 @@ const pool = mysql.createPool({
 });
 
 
-// Function to create user //
 async function createUser(email, password, firstName, lastName, birthDate){
-  pool.getConnection((error, connection) =>{
-    if (error){
-      console.error(error)
-    }else{
-      connection.query('INSERT INTO users (email, password, firstName, lastName, birthDate) VALUES (?, ?, ?, ?, ?)',
-    [email, password, firstName, lastName, birthDate], (err, res) => {
-      if (err){
-        return err.code
-      }else{
-        console.log(res)
+  return new Promise((resolve, reject) => {
+    pool.getConnection((error, connect) => {
+      if (error){
+        reject(error)
       }
+      connect.query('INSERT INTO users (email, password, firstName, lastName, birthDate) VALUES (?, ?, ?, ?, ?)',
+      [email, password, firstName, lastName, birthDate], (err, res) => {
+        if (err){
+          reject(new Error("1062"))
+        }
+        resolve(res)
+      })
     })
-    }
   })
 }
+
 
 async function getUser(email) {
   return new Promise((resolve, reject) => {
@@ -66,6 +66,7 @@ async function getUser(email) {
   })
 }
 
+
 function generateAccessToken(payload) {
   try{
     return jwt.sign(payload, process.env.TOKEN_SECRET, { expiresIn: '30m' }); 
@@ -73,6 +74,7 @@ function generateAccessToken(payload) {
     console.error("failed to generate access token " + error)
   }
 }
+
 
 function authToken(req, res, next){
   const token = req.body.token
@@ -86,6 +88,7 @@ function authToken(req, res, next){
     });
   }
 }
+
 
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
@@ -121,12 +124,9 @@ app.post("/api/login", async (req, res) => {
 });
 
 
-
-
 app.get("/api/user/:email", async (req, res) => {
   const email = req.params.email;
   const result = await getUser(email)
-  // console.log(result)
   res.send(result);
 });
 
@@ -134,12 +134,22 @@ app.get("/api/user/:email", async (req, res) => {
 app.post("/api/register", async (req, res) => {
   const {email, password, firstName, lastName, birthDate} = req.body
   const hashPassword = await bcrypt.hash(password, 10)
-  const response = createUser(email, hashPassword, firstName, lastName, birthDate)
-  console.log(response)
+  try{
+    await createUser(email, hashPassword, firstName, lastName, birthDate)
+    res.status(201).send({
+      message: "Sucessfully created user"
+    })
+  }catch(error){
+    if (error.message === "1062") {
+      res.status(409)
+    }else{
+      res.status(500)
+    }
+  }
 })
 
 
-app.get('/api/getAllUsers', (req, res) => {
+app.get('/api/getAllUsers', authToken, (req, res) => {
   const query = `SELECT firstName, lastName FROM users`;
   pool.getConnection((err, connection) => {
     if (err) {
@@ -157,5 +167,6 @@ app.get('/api/getAllUsers', (req, res) => {
     connection.release();
   });
 });
+
 
 app.listen(port, () => console.log(`Server listening on port ${port}`));
